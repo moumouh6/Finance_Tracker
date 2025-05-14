@@ -2,6 +2,8 @@ FinTrack - Personal Finance Tracker
 
 A modern web application for tracking personal finances, managing budgets, and gaining insights into spending habits.
 
+> **⚠️ PROJECT STATUS: EN COURS (IN PROGRESS)** - This application is still under active development and not all features may be fully implemented or functional.
+
 Live Demo: [https://personal-finance-tracker2.netlify.app/](https://personal-finance-tracker2.netlify.app/)
 
 ## Features
