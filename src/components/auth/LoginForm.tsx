@@ -28,8 +28,8 @@ const LoginForm: React.FC<LoginFormProps> = ({ onToggleForm }) => {
 
     try {
       await login(email, password);
-    } catch (err) {
-      setError('Invalid email or password');
+    } catch (err: any) {
+      setError(err.message || 'Invalid email or password');
     } finally {
       setIsLoading(false);
     }
@@ -56,6 +56,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onToggleForm }) => {
           fullWidth
           leftIcon={<Mail size={18} />}
           required
+          disabled={isLoading}
         />
       </div>
 
@@ -69,6 +70,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onToggleForm }) => {
           fullWidth
           leftIcon={<Lock size={18} />}
           required
+          disabled={isLoading}
         />
       </div>
 
@@ -87,6 +89,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onToggleForm }) => {
           type="button"
           onClick={onToggleForm}
           className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+          disabled={isLoading}
         >
           Sign Up
         </button>

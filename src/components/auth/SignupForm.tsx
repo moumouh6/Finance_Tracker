@@ -40,8 +40,8 @@ const SignupForm: React.FC<SignupFormProps> = ({ onToggleForm }) => {
 
     try {
       await signup(username, email, password);
-    } catch (err) {
-      setError('Sign up failed. Please try again.');
+    } catch (err: any) {
+      setError(err.message || 'Sign up failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -62,12 +62,13 @@ const SignupForm: React.FC<SignupFormProps> = ({ onToggleForm }) => {
         <Input
           type="text"
           label="Username"
-          placeholder="Mohamed"
+          placeholder="John Doe"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           fullWidth
           leftIcon={<User size={18} />}
           required
+          disabled={isLoading}
         />
       </div>
 
@@ -81,6 +82,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onToggleForm }) => {
           fullWidth
           leftIcon={<Mail size={18} />}
           required
+          disabled={isLoading}
         />
       </div>
 
@@ -94,6 +96,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onToggleForm }) => {
           fullWidth
           leftIcon={<Lock size={18} />}
           required
+          disabled={isLoading}
         />
       </div>
 
@@ -107,6 +110,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onToggleForm }) => {
           fullWidth
           leftIcon={<Lock size={18} />}
           required
+          disabled={isLoading}
         />
       </div>
 
@@ -125,6 +129,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onToggleForm }) => {
           type="button"
           onClick={onToggleForm}
           className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+          disabled={isLoading}
         >
           Sign In
         </button>

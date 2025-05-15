@@ -15,39 +15,55 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check active session
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
+    // Check active session and fetch user data
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
 
-        if (userData) {
-          setUser(userData);
-          setIsAuthenticated(true);
+          if (userError) throw userError;
+
+          if (userData) {
+            setUser(userData);
+            setIsAuthenticated(true);
+          }
         }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    checkSession();
+    initializeAuth();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
+        try {
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
 
-        if (userData) {
-          setUser(userData);
-          setIsAuthenticated(true);
+          if (userError) throw userError;
+
+          if (userData) {
+            setUser(userData);
+            setIsAuthenticated(true);
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
         }
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
@@ -61,53 +77,97 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      throw new Error(error.message);
+      if (error) throw error;
+
+      if (data.user) {
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+
+        if (userError) throw userError;
+
+        if (userData) {
+          setUser(userData);
+          setIsAuthenticated(true);
+        }
+      }
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to sign in');
     }
   };
 
   const signup = async (username: string, email: string, password: string) => {
-    const { error: signUpError, data } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
 
-    if (signUpError) {
-      throw new Error(signUpError.message);
-    }
+      if (error) throw error;
 
-    if (data.user) {
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert([
-          {
-            id: data.user.id,
-            username,
-            email,
-          },
-        ]);
+      if (data.user) {
+        const { error: profileError } = await supabase
+          .from('users')
+          .insert([
+            {
+              id: data.user.id,
+              username,
+              email,
+            },
+          ]);
 
-      if (profileError) {
-        // Cleanup: delete the auth user if profile creation fails
-        await supabase.auth.admin.deleteUser(data.user.id);
-        throw new Error('Failed to create user profile');
+        if (profileError) {
+          // Cleanup: delete the auth user if profile creation fails
+          await supabase.auth.admin.deleteUser(data.user.id);
+          throw profileError;
+        }
+
+        // Fetch the created user profile
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+
+        if (userError) throw userError;
+
+        if (userData) {
+          setUser(userData);
+          setIsAuthenticated(true);
+        }
       }
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to sign up');
     }
   };
 
   const logout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      throw new Error(error.message);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      setUser(null);
+      setIsAuthenticated(false);
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to sign out');
     }
-    setUser(null);
-    setIsAuthenticated(false);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated, login, signup, logout }}>
