@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Menu, X, UserCircle, Moon, Sun, LogOut } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import Button from '../ui/Button';
+import LanguageSwitcher from './LanguageSwitcher';
 
 interface NavbarProps {
   toggleSidebar: () => void;
@@ -13,6 +15,7 @@ const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, isSidebarOpen }) => {
   const { user, logout, isAuthenticated } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const { t } = useTranslation();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-10 bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-800">
@@ -33,6 +36,8 @@ const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, isSidebarOpen }) => {
           </div>
 
           <div className="flex items-center space-x-4">
+            <LanguageSwitcher />
+            
             <button
               onClick={toggleTheme}
               className="p-2 rounded-md text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white focus:outline-none"
@@ -57,13 +62,13 @@ const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, isSidebarOpen }) => {
                       className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                     >
                       <LogOut size={16} className="mr-2" />
-                      <span>Sign out</span>
+                      <span>{t('common.logout')}</span>
                     </button>
                   </div>
                 )}
               </div>
             ) : (
-              <Button variant="primary" size="sm">Sign In</Button>
+              <Button variant="primary" size="sm">{t('common.signIn')}</Button>
             )}
           </div>
         </div>
