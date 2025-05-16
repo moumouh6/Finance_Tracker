@@ -40,8 +40,17 @@ const SignupForm: React.FC<SignupFormProps> = ({ onToggleForm }) => {
 
     try {
       await signup(username, email, password);
-    } catch (err) {
-      setError('Sign up failed. Please try again.');
+    } catch (err: any) {
+      // Handle specific Supabase error messages
+      if (err.message.includes('User already registered')) {
+        setError('This email is already registered');
+      } else if (err.message.includes('Invalid email')) {
+        setError('Please enter a valid email address');
+      } else if (err.message.includes('Password should be at least 6 characters')) {
+        setError('Password must be at least 6 characters');
+      } else {
+        setError(err.message || 'An error occurred during sign up');
+      }
     } finally {
       setIsLoading(false);
     }

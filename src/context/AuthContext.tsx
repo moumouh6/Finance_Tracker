@@ -22,13 +22,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (session) {
-        const { data: userData } = await supabase
+        const { data: userData, error: userError } = await supabase
           .from('users')
           .select('*')
           .eq('id', session.user.id)
           .single();
 
-        if (userData) {
+        if (userData && !userError) {
           setUser(userData);
           setIsAuthenticated(true);
         }
@@ -40,13 +40,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        const { data: userData } = await supabase
+        const { data: userData, error: userError } = await supabase
           .from('users')
           .select('*')
           .eq('id', session.user.id)
           .single();
 
-        if (userData) {
+        if (userData && !userError) {
           setUser(userData);
           setIsAuthenticated(true);
         }
@@ -62,21 +62,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string) => {
-    const { data: { session }, error } = await supabase.auth.signInWithPassword({
+    const { data: { session }, error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password
     });
 
-    if (error) {
-      throw new Error(error.message);
+    if (signInError) {
+      throw new Error(signInError.message);
     }
 
     if (session) {
-      const { data: userData } = await supabase
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
         .eq('id', session.user.id)
         .single();
+
+      if (userError) {
+        throw new Error('Failed to fetch user data');
+      }
 
       if (userData) {
         setUser(userData);
@@ -86,6 +90,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signup = async (username: string, email: string, password: string) => {
+    // First check if email already exists in users table
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('email')
+      .eq('email', email)
+      .single();
+
+    if (existingUser) {
+      throw new Error('This email is already registered');
+    }
+
     const { data: { session }, error: signUpError } = await supabase.auth.signUp({
       email,
       password
@@ -95,28 +110,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error(signUpError.message);
     }
 
-    if (session?.user) {
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert([
-          {
-            id: session.user.id,
-            username,
-            email
-          }
-        ]);
-
-      if (profileError) {
-        throw new Error(profileError.message);
-      }
-
-      setUser({
-        id: session.user.id,
-        username,
-        email
-      });
-      setIsAuthenticated(true);
+    if (!session?.user) {
+      throw new Error('Sign up failed. Please try again.');
     }
+
+    // Create user profile
+    const { error: profileError } = await supabase
+      .from('users')
+      .insert([
+        {
+          id: session.user.id,
+          username,
+          email
+        }
+      ]);
+
+    if (profileError) {
+      // If profile creation fails, delete the auth user
+      await supabase.auth.signOut();
+      throw new Error('Failed to create user profile');
+    }
+
+    setUser({
+      id: session.user.id,
+      username,
+      email
+    });
+    setIsAuthenticated(true);
   };
 
   const logout = async () => {
