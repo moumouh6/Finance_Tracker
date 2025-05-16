@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
+import { supabase } from '../lib/supabase';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (username: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -15,57 +16,114 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
-  // Check if user is logged in on initial load
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-      setIsAuthenticated(true);
-    }
+    // Check active session
+    const checkSession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (session) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (userData) {
+          setUser(userData);
+          setIsAuthenticated(true);
+        }
+      }
+    };
+
+    checkSession();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (userData) {
+          setUser(userData);
+          setIsAuthenticated(true);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setIsAuthenticated(false);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // Mock login function - in a real app, this would call an API
   const login = async (email: string, password: string) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // This is just for demo purposes - in a real app, this would be handled by a backend
-    if (email && password.length >= 6) {
-      const newUser: User = {
-        id: '1',
-        username: email.split('@')[0],
-        email
-      };
-      localStorage.setItem('user', JSON.stringify(newUser));
-      setUser(newUser);
-      setIsAuthenticated(true);
-    } else {
-      throw new Error('Invalid credentials');
+    const { data: { session }, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (session) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (userData) {
+        setUser(userData);
+        setIsAuthenticated(true);
+      }
     }
   };
 
-  // Mock signup function
   const signup = async (username: string, email: string, password: string) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // This is just for demo purposes
-    if (username && email && password.length >= 6) {
-      const newUser: User = {
-        id: '1',
+    const { data: { session }, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password
+    });
+
+    if (signUpError) {
+      throw new Error(signUpError.message);
+    }
+
+    if (session?.user) {
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert([
+          {
+            id: session.user.id,
+            username,
+            email
+          }
+        ]);
+
+      if (profileError) {
+        throw new Error(profileError.message);
+      }
+
+      setUser({
+        id: session.user.id,
         username,
         email
-      };
-      localStorage.setItem('user', JSON.stringify(newUser));
-      setUser(newUser);
+      });
       setIsAuthenticated(true);
-    } else {
-      throw new Error('Invalid signup data');
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('user');
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      throw new Error(error.message);
+    }
     setUser(null);
     setIsAuthenticated(false);
   };
