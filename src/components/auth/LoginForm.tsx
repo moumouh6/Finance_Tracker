@@ -24,12 +24,25 @@ const LoginForm: React.FC<LoginFormProps> = ({ onToggleForm }) => {
       return;
     }
 
+    if (!email.includes('@')) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      await login(email, password);
-    } catch (err) {
-      setError('Invalid email or password');
+      await login(email.trim().toLowerCase(), password);
+    } catch (err: any) {
+      if (err.message.includes('Invalid login credentials')) {
+        setError('Email or password is incorrect. Please try again.');
+      } else if (err.message.includes('Email not confirmed')) {
+        setError('Please confirm your email address before logging in.');
+      } else if (err.message.includes('User not found')) {
+        setError('No account found with this email. Please sign up.');
+      } else {
+        setError('An error occurred during login. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }

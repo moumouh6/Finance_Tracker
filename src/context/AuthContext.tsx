@@ -68,25 +68,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     if (signInError) {
-      throw new Error(signInError.message);
+      // Check for specific error types and provide appropriate messages
+      if (signInError.message.includes('Invalid login credentials')) {
+        throw new Error('Invalid login credentials');
+      } else if (signInError.message.includes('Email not confirmed')) {
+        throw new Error('Email not confirmed');
+      } else if (signInError.message.includes('User not found')) {
+        throw new Error('User not found');
+      }
+      throw signInError;
     }
 
-    if (session) {
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-
-      if (userError) {
-        throw new Error('Failed to fetch user data');
-      }
-
-      if (userData) {
-        setUser(userData);
-        setIsAuthenticated(true);
-      }
+    if (!session) {
+      throw new Error('Login failed. Please try again.');
     }
+
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', session.user.id)
+      .single();
+
+    if (userError) {
+      throw new Error('Failed to fetch user data');
+    }
+
+    if (!userData) {
+      throw new Error('User profile not found');
+    }
+
+    setUser(userData);
+    setIsAuthenticated(true);
   };
 
   const signup = async (username: string, email: string, password: string) => {
